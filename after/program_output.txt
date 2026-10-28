@@ -1,0 +1,9 @@
+New regime, salary 12,75,000: 0
+New regime, salary 18,00,000: 150800
+Old regime, salary 18,00,000: 279240
+Better regime: new
+Basic exemption at age 80: 500000
+PAN 'ABCDE1234FXYZ' valid? False
+Same PAN encrypts the same way twice? False
+Form 16: (1800000, 150000)
+Signing key size: 2048

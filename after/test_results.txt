@@ -1,0 +1,11 @@
+test_encryption (test_tax_calculator.CalculatorTests) ... ok
+test_exemption_boundaries (test_tax_calculator.CalculatorTests) ... ok
+test_new_tax (test_tax_calculator.CalculatorTests) ... ok
+test_pan (test_tax_calculator.CalculatorTests) ... ok
+test_regime_comparison (test_tax_calculator.CalculatorTests) ... ok
+test_xml_and_key (test_tax_calculator.CalculatorTests) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 0.072s
+
+OK

@@ -54,3 +54,28 @@ The code works, but only just. It has quality, style and security problems of th
 **Target:** aim for a Pylint score above 9.5 on your final file. A perfect 10.00/10 is very good.
 
 Be ready to explain the bugs you found and how you fixed them. You may be called on to present.
+
+## Completed lab submission
+
+- `before/`: unchanged assigned source, all three original reports, original demo output.
+- `after/`: final source snapshot, all three final reports, final demo output and regression results.
+- `issues.md`: prioritized findings, original line references and fixes.
+- `reflection.md`: four reflections; the supplied PDF contains no explicit reflection questions.
+- `requirements.txt`: exact environment package versions (Python 3.9.6).
+- `test_tax_calculator.py`: six regression tests.
+
+Reproduce from the repository root:
+
+```sh
+python3 -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt
+python tax_calculator.py
+python -m pylint --persistent=n tax_calculator.py > pylint_report.txt
+python -m bandit -r tax_calculator.py > bandit_report.txt 2>&1
+python -m flake8 tax_calculator.py > flake8_report.txt
+python -m unittest -v
+```
+
+Scan the root calculator, not the intentionally insecure source preserved under `before/`.
+An empty final Flake8 report means there are no violations. Reports are actual captured tool output. Final target: Pylint 10.00/10, Bandit zero findings, Flake8 zero violations. The submission adds exactly three commits to original commit `638c236`: security fixes, quality/logic fixes, and formatting plus final evidence.
