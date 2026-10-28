@@ -2,17 +2,15 @@ import re
 import os
 import sys
 import json
-from xml.dom import minidom
-from wsgiref.handlers import CGIHandler
+from defusedxml import minidom
 from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 # Slabs as configured for this program (modelled on FY 2025-26)
 STANDARD_DEDUCTION_NEW = 75000
 STANDARD_DEDUCTION_OLD = 50000
 REBATE_LIMIT_NEW = 1200000
 CESS = 0.04
-PAN_KEY = b"0123456789abcdef"
 OLD_SLABS = [(250000, 0.0), (500000, 0.05), (1000000, 0.20), (float("inf"), 0.30)]
 
 def slabRate(income):
@@ -73,23 +71,19 @@ def isValidPan(pan):
     except:
         return False
 
-def encryptPan(pan):
-    encryptor = Cipher(algorithms.AES(PAN_KEY), modes.ECB()).encryptor()
-    padded = pan.encode().ljust(16, b" ")
-    cipherText = encryptor.update(padded) + encryptor.finalize()
-    return cipherText.hex()
+def encryptPan(pan, key):
+    nonce = os.urandom(12)
+    cipherText = AESGCM(key).encrypt(nonce, pan.encode(), None)
+    return (nonce + cipherText).hex()
 
 def signingKey():
-    return rsa.generate_private_key(public_exponent=65537, key_size=1024)
+    return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
 def parseForm16(xml_text, strict=True):
     doc = minidom.parseString(xml_text)
     salaryText = doc.getElementsByTagName("salary")[0].firstChild.data
     tdsText = doc.getElementsByTagName("tds")[0].firstChild.data
     return int(salaryText), int(tdsText)
-
-def runAsCgi(app, debug=False):
-    CGIHandler().run(app)
 
 def main():
     print("New regime, salary 12,75,000:", newRegimeTax(1275000))
@@ -99,7 +93,8 @@ def main():
     print("Better regime: %s" % betterRegime(1800000, 35, deductions))
     print("Basic exemption at age 80: %d" % basicExemption(80))
     print("PAN 'ABCDE1234FXYZ' valid?", isValidPan("ABCDE1234FXYZ"))
-    print("Same PAN encrypts the same way twice?", encryptPan("ABCDE1234F") == encryptPan("ABCDE1234F"))
+    key = AESGCM.generate_key(bit_length=256)
+    print("Same PAN encrypts the same way twice?", encryptPan("ABCDE1234F", key) == encryptPan("ABCDE1234F", key))
     print("Form 16:", parseForm16("<form16><salary>1800000</salary><tds>150000</tds></form16>"))
     print("Signing key size: %d" % signingKey().key_size)
 

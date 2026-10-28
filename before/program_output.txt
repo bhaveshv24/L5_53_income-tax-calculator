@@ -1,0 +1,11 @@
+New regime, salary 12,75,000: 124800
+New regime, salary 18,00,000: 358800
+Last slab rate applied: 0.3
+Old regime, salary 18,00,000: 279240
+Last slab rate applied: 0.3
+Better regime: new
+Basic exemption at age 80: 250000
+PAN 'ABCDE1234FXYZ' valid? True
+Same PAN encrypts the same way twice? True
+Form 16: (1800000, 150000)
+Signing key size: 1024
