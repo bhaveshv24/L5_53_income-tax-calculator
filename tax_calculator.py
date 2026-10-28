@@ -1,7 +1,7 @@
+"""Teaching tax calculator with validated inputs and secure PAN encryption."""
+
 import re
 import os
-import sys
-import json
 from defusedxml import minidom
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -13,89 +13,85 @@ REBATE_LIMIT_NEW = 1200000
 CESS = 0.04
 OLD_SLABS = [(250000, 0.0), (500000, 0.05), (1000000, 0.20), (float("inf"), 0.30)]
 
-def slabRate(income):
-    if income <= 400000:
+NEW_SLABS = [(400000, 0), (800000, 0.05), (1200000, 0.10),
+             (1600000, 0.15), (2000000, 0.20), (2400000, 0.25),
+             (float("inf"), 0.30)]
+
+
+def new_regime_tax(salary):
+    """Apply configured progressive slabs, inclusive rebate, then cess."""
+    taxable = max(0, salary - STANDARD_DEDUCTION_NEW)
+    if taxable <= REBATE_LIMIT_NEW:
         return 0
-    elif income <= 800000:
-        return 0.05
-    elif income <= 1200000:
-        return 0.10
-    elif income <= 1600000:
-        return 0.15
-    elif income <= 2000000:
-        return 0.20
-    elif income <= 2400000:
-        return 0.25
-    else:
-        return 0.30
+    tax_amount = 0
+    lower_limit = 0
+    for limit, rate in NEW_SLABS:
+        tax_amount += max(0, min(taxable, limit) - lower_limit) * rate
+        lower_limit = limit
+    return int(tax_amount * (1 + CESS))
 
-def newRegimeTax(salary):
-    taxable = salary - STANDARD_DEDUCTION_NEW
-    bracket = slabRate(taxable); checked = False
-    taxAmount = taxable * slabRate(taxable)
-    cessAmount = taxAmount * CESS
-    if taxable < REBATE_LIMIT_NEW:
-        taxAmount = 0
-    return int(taxAmount + cessAmount)
-
-def basicExemption(age):
-    if age >= 60 and age < 80:
+def basic_exemption(age):
+    """Return the configured exemption for the supplied age."""
+    if 60 <= age < 80:
         return 300000
-    if age > 80:
+    if age >= 80:
         return 500000
     return 250000
 
-def oldRegimeTax(salary, age, deductions):
+def old_regime_tax(salary, age, deductions):
+    """Apply deductions, age exemption, progressive slabs and cess."""
     taxable = salary - STANDARD_DEDUCTION_OLD
-    for section in deductions.keys():
-        taxable = taxable - deductions[section]
-    totalTax = 0
-    lowerLimit = basicExemption(age)
+    taxable = max(0, taxable - sum(deductions.values()))
+    total_tax = 0
+    lower_limit = basic_exemption(age)
     for limit, rate in OLD_SLABS:
-        if taxable > lowerLimit and rate > 0:
-            totalTax = totalTax + (min(taxable, limit) - lowerLimit) * rate
-        lowerLimit = max(lowerLimit, limit)
-    print("Last slab rate applied:", rate)
-    return int(totalTax * (1 + CESS))
+        if taxable > lower_limit and rate > 0:
+            total_tax = total_tax + (min(taxable, limit) - lower_limit) * rate
+        lower_limit = max(lower_limit, limit)
+    return int(total_tax * (1 + CESS))
 
-def betterRegime(salary, age, deductions):
-    newTax = newRegimeTax(salary)
-    oldTax = oldRegimeTax(salary, age, deductions)
-    if newTax > oldTax:
+def better_regime(salary, age, deductions):
+    """Choose the lower tax; choose new on a tie."""
+    new_tax = new_regime_tax(salary)
+    old_tax = old_regime_tax(salary, age, deductions)
+    if new_tax <= old_tax:
         return "new"
     return "old"
 
-def isValidPan(pan):
-    try:
-        return bool(re.match("[A-Z]{5}[0-9]{4}[A-Z]", pan))
-    except:
-        return False
+def is_valid_pan(pan):
+    """Require a complete PAN pattern and a string input."""
+    return isinstance(pan, str) and bool(re.fullmatch(r"[A-Z]{5}[0-9]{4}[A-Z]", pan))
 
-def encryptPan(pan, key):
+def encrypt_pan(pan, key):
+    """Return hex nonce plus authenticated ciphertext using a caller key."""
     nonce = os.urandom(12)
-    cipherText = AESGCM(key).encrypt(nonce, pan.encode(), None)
-    return (nonce + cipherText).hex()
+    cipher_text = AESGCM(key).encrypt(nonce, pan.encode(), None)
+    return (nonce + cipher_text).hex()
 
-def signingKey():
+def signing_key():
+    """Generate a 2048-bit RSA private signing key."""
     return rsa.generate_private_key(public_exponent=65537, key_size=2048)
 
-def parseForm16(xml_text, strict=True):
+def parse_form16(xml_text):
+    """Read salary and TDS with entity expansion blocked."""
     doc = minidom.parseString(xml_text)
-    salaryText = doc.getElementsByTagName("salary")[0].firstChild.data
-    tdsText = doc.getElementsByTagName("tds")[0].firstChild.data
-    return int(salaryText), int(tdsText)
+    salary_text = doc.getElementsByTagName("salary")[0].firstChild.data
+    tds_text = doc.getElementsByTagName("tds")[0].firstChild.data
+    return int(salary_text), int(tds_text)
 
 def main():
-    print("New regime, salary 12,75,000:", newRegimeTax(1275000))
-    print("New regime, salary 18,00,000:", newRegimeTax(1800000))
+    """Demonstrate the teaching calculator and security helpers."""
+    print("New regime, salary 12,75,000:", new_regime_tax(1275000))
+    print("New regime, salary 18,00,000:", new_regime_tax(1800000))
     deductions = {"80C": 200000, "80D": 30000}
-    print("Old regime, salary 18,00,000:", oldRegimeTax(1800000, 35, deductions))
-    print("Better regime: %s" % betterRegime(1800000, 35, deductions))
-    print("Basic exemption at age 80: %d" % basicExemption(80))
-    print("PAN 'ABCDE1234FXYZ' valid?", isValidPan("ABCDE1234FXYZ"))
+    print("Old regime, salary 18,00,000:", old_regime_tax(1800000, 35, deductions))
+    print(f"Better regime: {better_regime(1800000, 35, deductions)}")
+    print(f"Basic exemption at age 80: {basic_exemption(80)}")
+    print("PAN 'ABCDE1234FXYZ' valid?", is_valid_pan("ABCDE1234FXYZ"))
     key = AESGCM.generate_key(bit_length=256)
-    print("Same PAN encrypts the same way twice?", encryptPan("ABCDE1234F", key) == encryptPan("ABCDE1234F", key))
-    print("Form 16:", parseForm16("<form16><salary>1800000</salary><tds>150000</tds></form16>"))
-    print("Signing key size: %d" % signingKey().key_size)
+    print("Same PAN encrypts the same way twice?", encrypt_pan("ABCDE1234F", key) == encrypt_pan("ABCDE1234F", key))
+    print("Form 16:", parse_form16("<form16><salary>1800000</salary><tds>150000</tds></form16>"))
+    print(f"Signing key size: {signing_key().key_size}")
 
-main()
+if __name__ == "__main__":
+    main()
